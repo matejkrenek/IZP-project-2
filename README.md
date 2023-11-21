@@ -86,3 +86,30 @@ Project Link: [https://github.com/matejkrenek/c-scaffolding](https://github.com/
 S/O to chatgpt
 
 <p align="right">(<a href="#readme-top">Back to top</a>)</p>
+
+## Notes and Examples
+- Each field in map is represented by 3 bits
+  - x2x1x0 (x0 - left wall, x1 - right wall, x2 - top/bottom wall)
+
+## Map Analysis
+6 7
+1 4 4 2 5 0 6
+1 4 4 0 4 0 2
+1 0 4 0 4 6 1
+1 2 7 1 0 4 2
+3 1 4 2 3 1 2
+4 2 5 0 4 2 5
+
+- way out from row *6*, column *1*
+6,1 - walls 100 on left bottom wall
+6,2 - wall 010 on right
+5,2 - wall 001 on top
+5,1 - wall 011 on right and bottom - cant go here
+5,3 - wall 100 on top
+5,4 - wall 010 on right
+5,5 - wall 011 on right and left - cant go here
+6,4 - wall 001 on left
+.
+.
+. 
+
