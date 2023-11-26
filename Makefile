@@ -108,3 +108,6 @@ init:
 
 valgrind:
 	$(VALGRIND) ./$(BUILD_DIR)/$(ENTRY_FILE)
+
+test.maze:
+	@bash ./test/maze-test.sh

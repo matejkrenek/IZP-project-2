@@ -65,7 +65,6 @@ void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule);
 
 int main(int argc, char **argv)
 {
-
     Command commands[] = {
         {
             .name = "--help",
