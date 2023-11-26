@@ -331,7 +331,7 @@ int map_test(Map *map)
                 }
             }
 
-            if ((row * map->cols + col) % 2 != 0 && row < map->rows - 1)
+            if ((row + col) % 2 != 0 && row < map->rows - 1)
             {
                 unsigned char bottom_border = map_cell(map, row + 1, col);
 
