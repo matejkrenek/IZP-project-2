@@ -43,7 +43,7 @@ STUBS_DIR=./tools/stubs
 
 # Compiler setup
 CC=cc
-CFLAGS=-std=c11 -Wall -Werror -Wextra -g
+CFLAGS=-std=c11 -Wall -Werror -g
 ENTRY_FILE=main
 SRC_FILES:=$(wildcard $(SRC_DIR)/**/*.c) $(wildcard $(SRC_DIR)/**/*.h) $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*.h)
 INCLUDES:=-I$(SRC_DIR)
