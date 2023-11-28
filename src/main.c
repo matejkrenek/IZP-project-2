@@ -7,15 +7,12 @@
  *
  * @copyright Copyright (c) 2023
  * @todo
- *   - [x] implement map allocations using ctor and dtor function
- *   - []  reimplement start border to be more ef
  *   - []  replace odd/even calc for cell with row + cell
  ***********************************************************************************
  */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <string.h>
 
 #define len(arr) sizeof(arr) / sizeof(arr[0])
@@ -62,7 +59,6 @@ unsigned char map_cell(Map *map, int row, int col);
 int map_isborder(Map *map, int row, int col, MapBorder border);
 MapBorder map_startborder(Map *map, int row, int col, MapRule rule);
 void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule);
-void map_find_shortest_path(Map *map, int row, int col, MapBorder border);
 
 int main(int argc, char **argv)
 {
@@ -105,7 +101,7 @@ int main(int argc, char **argv)
                 return commands[cmd_index].callback(argv);
             }
 
-            fprintf(stderr, "Please provide valid number of arguments\n");
+            fprintf(stderr, "`%s` requires %d arguments but %d given\n", commands[cmd_index].name, commands[cmd_index].argc, argc - 2);
             return 1;
         }
     }
@@ -133,15 +129,7 @@ int cmd_test(char **argv)
 {
     Map *map = map_ctor(argv[2]);
 
-    if (map == NULL)
-    {
-        printf("Invalid\n");
-        // fprintf(stderr, "Passed `%s` couldnt be loaded", argv[2]);
-
-        return 0;
-    }
-
-    if (!map_test(map))
+    if (map == NULL || !map_test(map))
     {
         printf("Invalid\n");
     }
@@ -206,17 +194,6 @@ int cmd_lpath(char **argv)
     return 0;
 }
 
-/**
- * @todo
- *  - check that we can start on starting point selected by user
- *  - check all edges of entered cell (instead of entrance cell)
- *  - if there is only one edge with no border continue into the cell
- *  - if there are two edges with no border we have a desision point
- *      - store the current cell
- *      - choose one of the paths to be discovered and store the path into temporary storage
- *      - if the path in temporary storage goes to finish => we have shortest path
- *  - if there is no edge withhout border get out from the maze from entry point
- */
 int cmd_shortest(char **argv)
 {
     Map *map = map_ctor(argv[4]);
@@ -227,8 +204,6 @@ int cmd_shortest(char **argv)
 
         return 1;
     }
-
-    map_find_shortest_path(map, atoi(argv[2]), atoi(argv[3]), LEFT);
 
     map_dtor(map);
 
@@ -404,58 +379,44 @@ int map_isborder(Map *map, int row, int col, MapBorder border)
  */
 MapBorder map_startborder(Map *map, int row, int col, MapRule rule)
 {
-    // Coming from left odd row
-    if (row % 2 != 0 && col == 1)
+    // Checking row and col are not out of maze
+    if (row > map->rows || row < 1 || col > map->cols || col < 1)
     {
-        if (row == 1 && map_isborder(map, row, col, LEFT))
-        {
-            return rule == RIGHT_HAND ? LEFT : RIGHT;
-        }
+        return (MapBorder)NULL;
+    }
 
+    // Coming from left odd row
+    if (row % 2 != 0 && col == 1 && !map_isborder(map, row, col, LEFT))
+    {
         return rule == RIGHT_HAND ? RIGHT : BOTTOM_TOP;
     }
 
     // Coming from left even row
-    if (row % 2 == 0 && col == 1)
+    if (row % 2 == 0 && col == 1 && !map_isborder(map, row, col, LEFT))
     {
-        if (row == map->rows && map_isborder(map, row, col, LEFT))
-        {
-            return rule == RIGHT_HAND ? RIGHT : LEFT;
-        }
-
         return rule == RIGHT_HAND ? BOTTOM_TOP : RIGHT;
     }
 
     // Coming from right with top
-    if (col == map->cols && ((row % 2 != 0 && map->cols % 2 != 0) || (row % 2 == 0 && map->cols % 2 == 0)))
+    if (col == map->cols && ((row % 2 != 0 && map->cols % 2 != 0) || (row % 2 == 0 && map->cols % 2 == 0)) && !map_isborder(map, row, col, RIGHT))
     {
-        if (row == 1 && col == map->cols && map_isborder(map, row, col, RIGHT))
-        {
-            return rule == RIGHT_HAND ? LEFT : RIGHT;
-        }
-
         return rule == RIGHT_HAND ? BOTTOM_TOP : LEFT;
     }
 
     // Coming from right with bottom
-    if (col == map->cols && ((row % 2 != 0 && map->cols % 2 == 0) || (row % 2 == 0 && map->cols % 2 != 0)))
+    if (col == map->cols && ((row % 2 != 0 && map->cols % 2 == 0) || (row % 2 == 0 && map->cols % 2 != 0)) && !map_isborder(map, row, col, RIGHT))
     {
-        if (row == map->rows && col == map->cols && map_isborder(map, row, col, RIGHT))
-        {
-            return rule == RIGHT_HAND ? RIGHT : LEFT;
-        }
-
         return rule == RIGHT_HAND ? LEFT : BOTTOM_TOP;
     }
 
     // Coming from top
-    if (row == 1 && col > 1 && col < map->cols)
+    if (row == 1 && col >= 1 && col <= map->cols && (row + col) % 2 == 0 && !map_isborder(map, row, col, BOTTOM_TOP))
     {
         return rule == RIGHT_HAND ? LEFT : RIGHT;
     }
 
     // Coming from bottom
-    if (row == map->rows && col > 1 && col < map->cols)
+    if (row == map->rows && col >= 1 && col <= map->cols && (row + col) % 2 != 0 && !map_isborder(map, row, col, BOTTOM_TOP))
     {
         return rule == RIGHT_HAND ? RIGHT : LEFT;
     }
@@ -463,40 +424,11 @@ MapBorder map_startborder(Map *map, int row, int col, MapRule rule)
     return (MapBorder)NULL;
 }
 
-void map_find_shortest_path(Map *map, int row, int col, MapBorder border)
-{
-    printf("%d,%d\n", row, col);
-
-    int no_border_count = 0;
-    MapBorder new_border = border;
-
-    // Find wall with no border
-    for (int i = 0; i < 3; i++)
-    {
-        if (!map_isborder(map, row, col, LEFT << i) && (LEFT << i != border))
-        {
-            new_border = LEFT << i;
-            no_border_count++;
-        }
-    }
-
-    col = new_border == LEFT ? col - 1 : (new_border == RIGHT ? col + 1 : col);
-    row = (new_border == BOTTOM_TOP && (row + col) % 2 != 0) ? row + 1 : ((new_border == BOTTOM_TOP && (row + col) % 2 == 0) ? row - 1 : row);
-    new_border = new_border == LEFT ? RIGHT : (new_border == RIGHT ? LEFT : BOTTOM_TOP);
-
-    if (row >= 1 && row <= map->rows && col >= 1 && col <= map->cols)
-    {
-        map_find_shortest_path(map, row, col, new_border);
-    }
-
-    return;
-}
-
 void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule)
 {
     printf("%d,%d\n", row, col);
 
-    // Find wall with no border
+    // Find edge with no border
     while (map_isborder(map, row, col, border))
     {
         if ((rule == RIGHT_HAND && (row + col) % 2 != 0) || (rule == LEFT_HAND && (row + col) % 2 == 0))
@@ -511,23 +443,10 @@ void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule)
     }
 
     // Change cell based on new border
-    if (border == LEFT)
-    {
-        col -= 1;
-    }
-    else if (border == RIGHT)
-    {
-        col += 1;
-    }
-    else if (border == BOTTOM_TOP && (row + col) % 2 == 0)
-    {
-        row -= 1;
-    }
-    else if (border == BOTTOM_TOP && (row + col) % 2 != 0)
-    {
-        row += 1;
-    }
-    // Are we out of maze?
+    col = border == LEFT ? col - 1 : (border == RIGHT ? col + 1 : col);
+    row = (border == BOTTOM_TOP && (row + col) % 2 == 0) ? row - 1 : ((border == BOTTOM_TOP && (row + col) % 2 != 0) ? row + 1 : row);
+
+    // Continue if the new cell isn't out of maze
     if (row >= 1 && row <= map->rows && col >= 1 && col <= map->cols)
     {
         // Change starting border
