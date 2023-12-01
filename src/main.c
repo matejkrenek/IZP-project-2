@@ -404,6 +404,14 @@ bool map_isborder(Map *map, int row, int col, MapBorder border)
     return (bool)(map_cell(map, row - 1, col - 1) & border);
 }
 
+/**
+ * @brief Rotates border based on provided cell and hand rule
+ * @param row Row of cell (starting from 1)
+ * @param col Column of cell (starting from 1)
+ * @param border Border position to be rotated
+ * @param rule Hand rule to be applied
+ * @return New rotated border
+ */
 MapBorder map_rotateborder(int row, int col, MapBorder border, MapRule rule)
 {
     if ((rule == RIGHT_HAND && (row + col) % 2 == 0) || (rule == LEFT_HAND && (row + col) % 2 != 0))
@@ -415,7 +423,12 @@ MapBorder map_rotateborder(int row, int col, MapBorder border, MapRule rule)
 }
 
 /**
- * @brief Finds out starting border of map
+ * @brief Get starting border of entering cell
+ * @param map Pointer to Map structure
+ * @param row Row of cell (starting from 1)
+ * @param col Column of cell (starting from 1)
+ * @param rule Hand rule to be applied
+ * @return Start border
  */
 MapBorder map_startborder(Map *map, int row, int col, MapRule rule)
 {
@@ -464,6 +477,14 @@ MapBorder map_startborder(Map *map, int row, int col, MapRule rule)
     return (MapBorder)NULL;
 }
 
+/**
+ * @brief Find path out of maze from given start
+ * @param map Pointer to Map structure
+ * @param row Row of cell (starting from 1)
+ * @param col Column of cell (starting from 1)
+ * @param border Start border of current cell
+ * @param rule Hand rule to be applied
+ */
 void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule)
 {
     printf("%d,%d\n", row, col);
