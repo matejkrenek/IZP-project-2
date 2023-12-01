@@ -3,7 +3,7 @@
  * @file maze.c
  * @author Matěj Křenek <xkrenem00@stud.fit.vutbr.cz>
  * @brief Program that finds a way out in a given maze
- * @date 2023-1-12
+ * @date 2023-01-12
  *
  * @copyright Copyright (c) 2023
  ***********************************************************************************
