@@ -3,20 +3,35 @@
  * @file maze.c
  * @author Matěj Křenek <xkrenem00@stud.fit.vutbr.cz>
  * @brief Program that finds a way out in a given maze
- * @date 2023-25-11
+ * @date 2023-29-11
  *
  * @copyright Copyright (c) 2023
  * @todo
- *   - []  replace odd/even calc for cell with row + cell
+ *   - [] refactor test command and constructor of map
+ *   - [] implement shortest path algorithm using distrija algorithm or A* algorithm
  ***********************************************************************************
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define len(arr) sizeof(arr) / sizeof(arr[0])
 #define MAP_FILE_LINE_BUFFER_SIZE 100
+
+typedef enum
+{
+    LEFT = 0b001,
+    RIGHT = 0b010,
+    BOTTOM_TOP = 0b100,
+} MapBorder;
+
+typedef enum
+{
+    LEFT_HAND,
+    RIGHT_HAND
+} MapRule;
 
 typedef struct
 {
@@ -32,31 +47,17 @@ typedef struct
     unsigned char *cells;
 } Map;
 
-typedef enum
-{
-    LEFT = 0b001,
-    RIGHT = 0b010,
-    BOTTOM_TOP = 0b100,
-} MapBorder;
-
-typedef enum
-{
-    LEFT_HAND,
-    RIGHT_HAND
-} MapRule;
-
 int cmd_help(char **argv);
 int cmd_test(char **argv);
 int cmd_rpath(char **argv);
 int cmd_lpath(char **argv);
-int cmd_shortest(char **argv);
 int cmd_exists(char *name, Command *commands, int length);
 Map *map_ctor(char *filename);
 void map_dtor(Map *map);
 int map_test(Map *map);
-void map_print(Map *map);
 unsigned char map_cell(Map *map, int row, int col);
-int map_isborder(Map *map, int row, int col, MapBorder border);
+bool map_isborder(Map *map, int row, int col, MapBorder border);
+MapBorder map_rotateborder(int row, int col, MapBorder border, MapRule rule);
 MapBorder map_startborder(Map *map, int row, int col, MapRule rule);
 void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule);
 
@@ -82,13 +83,7 @@ int main(int argc, char **argv)
             .name = "--lpath",
             .argc = 3,
             .callback = cmd_lpath,
-        },
-        {
-            .name = "--shortest",
-            .argc = 3,
-            .callback = cmd_shortest,
-        },
-    };
+        }};
 
     if (argc > 1)
     {
@@ -109,6 +104,11 @@ int main(int argc, char **argv)
     return commands[0].callback(argv);
 }
 
+/**
+ * @brief Command to print help message
+ * @param argv Pointer to list of program argumenents
+ * @return Error code
+ */
 int cmd_help(char **argv)
 {
     if (argv)
@@ -119,17 +119,27 @@ int cmd_help(char **argv)
         printf("  --test <FILE>\t\t\tCheck if passed FILE contains valid map format of maze.\n\n");
         printf("  --rpath <R> <C> <FILE>\tFinds a path from the maze stored in the FILE\n\t\t\t\tfrom row R of column C using the right hand rule.\n\n");
         printf("  --lpath <R> <C> <FILE>\tFinds a path from the maze stored in the FILE\n\t\t\t\tfrom row R of column C using the left hand rule.\n\n");
-        printf("  --shortest <R> <C> <FILE>\tFinds the shortest path from the maze\n\t\t\t\tstored in the FILE from row R of column C.\n\n");
     }
 
     return 0;
 }
 
+/**
+ * @brief Command to test map stored in filepath provided via arguments
+ * @param argv Pointer to list of program argumenents
+ * @return Error code
+ */
 int cmd_test(char **argv)
 {
     Map *map = map_ctor(argv[2]);
 
-    if (map == NULL || !map_test(map))
+    if (map == NULL)
+    {
+        printf("Invalid\n");
+        return 0;
+    }
+
+    if (!map_test(map))
     {
         printf("Invalid\n");
     }
@@ -143,15 +153,25 @@ int cmd_test(char **argv)
     return 0;
 }
 
+/**
+ * @brief Command to find path out of provided maze using right hand rule
+ * @param argv Pointer to list of program argumenents
+ * @return Error code
+ */
 int cmd_rpath(char **argv)
 {
     Map *map = map_ctor(argv[4]);
 
     if (map == NULL)
     {
-        fprintf(stderr, "Passed `%s` couldnt be loaded", argv[4]);
+        printf("Invalid map, please try to run `--test` command\n");
 
-        return 1;
+        return 0;
+    }
+
+    if (!map_test(map))
+    {
+        printf("Invalid map, please try to run `--test` command\n");
     }
 
     MapBorder start_border = map_startborder(map, atoi(argv[2]), atoi(argv[3]), RIGHT_HAND);
@@ -169,15 +189,25 @@ int cmd_rpath(char **argv)
     return 0;
 }
 
+/**
+ * @brief Command to find path out of provided maze using left hand rule
+ * @param argv Pointer to list of program argumenents
+ * @return Error code
+ */
 int cmd_lpath(char **argv)
 {
     Map *map = map_ctor(argv[4]);
 
     if (map == NULL)
     {
-        fprintf(stderr, "Passed `%s` couldnt be loaded", argv[4]);
+        printf("Invalid map, please try to run `--test` command\n");
 
-        return 1;
+        return 0;
+    }
+
+    if (!map_test(map))
+    {
+        printf("Invalid map, please try to run `--test` command\n");
     }
 
     MapBorder start_border = map_startborder(map, atoi(argv[2]), atoi(argv[3]), LEFT_HAND);
@@ -187,6 +217,7 @@ int cmd_lpath(char **argv)
         printf("Can't enter the maze from cell on row `%d` and column `%d`\n", atoi(argv[2]), atoi(argv[3]));
         return 0;
     }
+
     map_find_path(map, atoi(argv[2]), atoi(argv[3]), start_border, LEFT_HAND);
 
     map_dtor(map);
@@ -194,22 +225,13 @@ int cmd_lpath(char **argv)
     return 0;
 }
 
-int cmd_shortest(char **argv)
-{
-    Map *map = map_ctor(argv[4]);
-
-    if (map == NULL)
-    {
-        fprintf(stderr, "Passed `%s` couldnt be loaded", argv[4]);
-
-        return 1;
-    }
-
-    map_dtor(map);
-
-    return 0;
-}
-
+/**
+ * @brief Command utility function to find index of command in provided array of commands
+ * @param name Name of command to be found
+ * @param commands Array of commands
+ * @param length Length of provided array of commands
+ * @return Index of found command (-1 if not found)
+ */
 int cmd_exists(char *name, Command *commands, int length)
 {
     int index = -1;
@@ -226,9 +248,9 @@ int cmd_exists(char *name, Command *commands, int length)
 }
 
 /**
- * @brief Load and parse map structure from passed file
- * @param filepath path to file with map
- * @return int
+ * @brief Load and parse map structure from provided filepath
+ * @param filepath Path to file with map
+ * @return Pointer to created Map struct (NULL if failed)
  */
 Map *map_ctor(char *filepath)
 {
@@ -265,7 +287,12 @@ Map *map_ctor(char *filepath)
                 }
             }
 
-            // Check number of columns is valid
+            if (file_col == 0)
+            {
+                continue;
+            }
+
+            // Check number of cols is valid
             if (file_col != map->cols)
             {
                 map_dtor(map);
@@ -293,8 +320,8 @@ Map *map_ctor(char *filepath)
 }
 
 /**
- * @brief Free allocated memory of cells from passed map
- * @param map pointer to Map structure
+ * @brief Free allocated memory of provided Map
+ * @param map Pointer to Map structure
  */
 void map_dtor(Map *map)
 {
@@ -303,9 +330,9 @@ void map_dtor(Map *map)
 }
 
 /**
- * @brief Test map is valid maze
- * @param map pointer to Map structure
- * @return is valid state
+ * @brief Test provided map is valid maze
+ * @param map Pointer to Map structure
+ * @return Valid state (1: is valid, 0: isn't valid)
  */
 int map_test(Map *map)
 {
@@ -353,8 +380,11 @@ int map_test(Map *map)
 }
 
 /**
- * @brief Print passed map as matrix
- * @param map pointer to Map structure
+ * @brief Get value of cell in map on specified row and col
+ * @param map Pointer to Map structure
+ * @param row Row of cell (starting from 0)
+ * @param col Column of cell (starting from 0)
+ * @return Value of borders in cell
  */
 unsigned char map_cell(Map *map, int row, int col)
 {
@@ -362,16 +392,26 @@ unsigned char map_cell(Map *map, int row, int col)
 }
 
 /**
- * @brief Finds out if there is border on the given cell of passed map
- * @param map pointer to Map structure
- * @param row row position of cell (starting from 1)
- * @param col column position of cell (starting from 1)
- * @param border border position to be analyzed
- * @return int
+ * @brief Finds out if there is border on the given cell of provided map
+ * @param map Pointer to Map structure
+ * @param row Row of cell (starting from 1)
+ * @param col Column of cell (starting from 1)
+ * @param border Border position to be analyzed
+ * @return Bool value
  */
-int map_isborder(Map *map, int row, int col, MapBorder border)
+bool map_isborder(Map *map, int row, int col, MapBorder border)
 {
-    return (int)(map_cell(map, row - 1, col - 1) & border);
+    return (bool)(map_cell(map, row - 1, col - 1) & border);
+}
+
+MapBorder map_rotateborder(int row, int col, MapBorder border, MapRule rule)
+{
+    if ((rule == RIGHT_HAND && (row + col) % 2 == 0) || (rule == LEFT_HAND && (row + col) % 2 != 0))
+    {
+        return border == BOTTOM_TOP ? LEFT : (border << 1);
+    }
+
+    return border == LEFT ? BOTTOM_TOP : (border >> 1);
 }
 
 /**
@@ -431,76 +471,22 @@ void map_find_path(Map *map, int row, int col, MapBorder border, MapRule rule)
     // Find edge with no border
     while (map_isborder(map, row, col, border))
     {
-        if ((rule == RIGHT_HAND && (row + col) % 2 != 0) || (rule == LEFT_HAND && (row + col) % 2 == 0))
-        {
-            border = border == LEFT ? BOTTOM_TOP : (border >> 1);
-        }
-
-        if ((rule == RIGHT_HAND && (row + col) % 2 == 0) || (rule == LEFT_HAND && (row + col) % 2 != 0))
-        {
-            border = border == BOTTOM_TOP ? LEFT : (border << 1);
-        }
+        border = map_rotateborder(row, col, border, rule);
     }
 
     // Change cell based on new border
-    col = border == LEFT ? col - 1 : (border == RIGHT ? col + 1 : col);
-    row = (border == BOTTOM_TOP && (row + col) % 2 == 0) ? row - 1 : ((border == BOTTOM_TOP && (row + col) % 2 != 0) ? row + 1 : row);
+    col = border == BOTTOM_TOP ? col : (border == LEFT ? col - 1 : col + 1);
+    row = border != BOTTOM_TOP ? row : ((row + col) % 2 == 0 ? row - 1 : row + 1);
 
     // Continue if the new cell isn't out of maze
     if (row >= 1 && row <= map->rows && col >= 1 && col <= map->cols)
     {
         // Change starting border
-        if (border == RIGHT)
-        {
-            border = LEFT;
-        }
-        else if (border == LEFT)
-        {
-            border = RIGHT;
-        }
-
-        if ((row + col) % 2 == 0)
-        {
-            if (rule == RIGHT_HAND)
-            {
-                border = border == LEFT ? RIGHT : (border == RIGHT ? BOTTOM_TOP : LEFT);
-            }
-            else
-            {
-                border = border == LEFT ? BOTTOM_TOP : (border == RIGHT ? LEFT : RIGHT);
-            }
-        }
-        else
-        {
-            if (rule == RIGHT_HAND)
-            {
-                border = border == LEFT ? BOTTOM_TOP : (border == RIGHT ? LEFT : RIGHT);
-            }
-            else
-            {
-                border = border == LEFT ? RIGHT : (border == RIGHT ? BOTTOM_TOP : LEFT);
-            }
-        }
+        border = border == BOTTOM_TOP ? border : (border == RIGHT ? LEFT : RIGHT);
+        border = map_rotateborder(row, col, border, rule);
 
         map_find_path(map, row, col, border, rule);
     }
 
     return;
-}
-
-/**
- * @brief Print passed map as matrix
- * @param map pointer to Map structure
- */
-void map_print(Map *map)
-{
-    for (int row = 0; row < map->rows; row++)
-    {
-        for (int col = 0; col < map->cols; col++)
-        {
-            printf("%d ", map_cell(map, row, col));
-        }
-
-        printf("\n");
-    }
 }
