@@ -3,12 +3,9 @@
  * @file maze.c
  * @author Matěj Křenek <xkrenem00@stud.fit.vutbr.cz>
  * @brief Program that finds a way out in a given maze
- * @date 2023-29-11
+ * @date 2023-1-12
  *
  * @copyright Copyright (c) 2023
- * @todo
- *   - [] refactor test command and constructor of map
- *   - [] implement shortest path algorithm using distrija algorithm or A* algorithm
  ***********************************************************************************
  */
 
@@ -35,17 +32,17 @@ typedef enum
 
 typedef struct
 {
-    char *name;
-    int argc;
-    int (*callback)(char **argv);
-} Command;
-
-typedef struct
-{
     int rows;
     int cols;
     unsigned char *cells;
 } Map;
+
+typedef struct
+{
+    char *name;
+    int argc;
+    int (*callback)(char **argv);
+} Command;
 
 int cmd_help(char **argv);
 int cmd_test(char **argv);

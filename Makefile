@@ -44,7 +44,7 @@ STUBS_DIR=./tools/stubs
 # Compiler setup
 CC=cc
 CFLAGS=-std=c11 -Wall -Wextra -Werror -g
-ENTRY_FILE=main
+ENTRY_FILE=maze
 SRC_FILES:=$(wildcard $(SRC_DIR)/**/*.c) $(wildcard $(SRC_DIR)/**/*.h) $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*.h)
 INCLUDES:=-I$(SRC_DIR)
 ENTRY_FILES:=$(wildcard $(SRC_DIR)/**/*.c) $(wildcard $(SRC_DIR)/*.c)
